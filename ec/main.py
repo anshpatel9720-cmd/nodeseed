@@ -1,3 +1,29 @@
+#!/usr/bin/env python
+# encoding: utf8
+#
+# Copyright (C) 2013-2023 Kenneth S. Kundert
+# Licensed under the GNU General Public License v3 or later.
+# See http://www.gnu.org/licenses/
+
+"""
+Engineering Calculator
+
+A stack-based (RPN) engineering calculator with a text-based user interface that
+is intended to be used interactively.
+
+If run with no arguments, an interactive session is started. If arguments are
+present, they are tested to see if they are filenames, and if so, the files are
+opened and the contents are executed as a script.  If they are not file names,
+then the arguments themselves are treated as scripts and executed directly. The
+scripts are run in the order they are specified.  In this case an interactive
+session would not normally be started, but if the interactive option is
+specified, it would be started after all scripts have been run.
+
+The contents of ~/.ecrc, ./.ecrc, and the start up file will be run upon start
+up if they exist, and then the stack is cleared.
+
+Usage: ec [options] [<script>...]
+
 Options:
     -i, --interactive   Open an interactive session.
     -s, --startup file  Run commands from file to initialize calculator before
@@ -8,7 +34,7 @@ Options:
     -V, --version       Print the ec version information.
     -h, --help          Print usage information.
 """
- 
+
 from .actions import (
     actionsToUse,
     defaultFormat,
@@ -21,8 +47,8 @@ from docopt import docopt
 from inform import Color, display, error, fatal, Inform, os_error, warn, terminate
 from os.path import expanduser, exists
 import readline
- 
- 
+
+
 def main():
     options = docopt(__doc__)
     scripts = options["<script>"]
@@ -31,13 +57,13 @@ def main():
     interactive = options["--interactive"] or not scripts
     verbose = options["--verbose"]
     Inform(prog_name=False, colorscheme=scheme)
- 
+
     if options["--version"]:
         display("ec version: {} ({})".format(__version__, __released__))
         terminate()
- 
+
     highlight = Color("magenta", scheme=scheme)
- 
+
     def run_line(calc, line, prompt, location=None):
         try:
             result = calc.evaluate(calc.split(line))
@@ -49,7 +75,7 @@ def main():
             else:
                 fatal(e.message, culprit=location)
         return prompt
- 
+
     calc = Calculator(
         actions=actionsToUse,
         formatter=Display(
@@ -60,7 +86,7 @@ def main():
         warningPrinter=lambda warning: None,
     )
     prompt = "0"
- 
+
     rc_files = [f"{d}/.ecrc" for d in ["~", "."]]
     for each in rc_files + startup_files:
         lineno = None
@@ -74,10 +100,10 @@ def main():
         except OSError as e:
             if each not in rc_files:
                 fatal(os_error(e), culprit=(each, lineno))
- 
+
     calc.stack.clear()
     prompt = "0"
- 
+
     for arg in scripts:
         try:
             path = expanduser(arg)
@@ -94,10 +120,10 @@ def main():
                     display(f"{arg} ==> {prompt}")
         except OSError as e:
             fatal(os_error(e), culprit=(each, lineno))
- 
+
     if interactive:
         calc.warningPrinter = warn
- 
+
         while True:
             try:
                 entered = input(f"{highlight(prompt)}: ")
@@ -105,7 +131,6 @@ def main():
                 display()
                 terminate()
             prompt = run_line(calc, entered, prompt)
- 
+
     display(prompt)
     terminate()
- 

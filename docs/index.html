@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EC Engineering Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: instrument panel — readout column on the left, key bank on the right; stacks to one column on phones. */
+  :root {
+    --bg: #eef0f5;
+    --panel: #ffffff;
+    --screen: #f7f8fb;
+    --line: #d8dce6;
+    --fg: #1b1f2a;
+    --muted: #6a7184;
+    --accent: #2f6fe4;
+    --accent-ink: #ffffff;
+    --key: #e6e9f0;
+    --key-hover: #d9dde8;
+    --key-op: #d8e3fb;
+    --key-op-hover: #c6d6f8;
+    --key-unit: #e1ece5;
+    --key-unit-hover: #d0e2d6;
+    --key-clear: #f6dcdc;
+    --key-clear-hover: #f0caca;
+    --good: #1d8a44;
+    --warn: #a86b00;
+    --bad: #c63b3b;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181e;
+      --panel: #1f2028;
+      --screen: #101116;
+      --line: #2e303b;
+      --fg: #ececf1;
+      --muted: #8b8d9c;
+      --accent: #4f8cff;
+      --accent-ink: #ffffff;
+      --key: #2c2d37;
+      --key-hover: #3a3b47;
+      --key-op: #34425f;
+      --key-op-hover: #415278;
+      --key-unit: #2a3630;
+      --key-unit-hover: #36463d;
+      --key-clear: #5a3333;
+      --key-clear-hover: #704040;
+      --good: #7fdc8c;
+      --warn: #f0c060;
+      --bad: #ff8585;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181e;
+    --panel: #1f2028;
+    --screen: #101116;
+    --line: #2e303b;
+    --fg: #ececf1;
+    --muted: #8b8d9c;
+    --accent: #4f8cff;
+    --accent-ink: #ffffff;
+    --key: #2c2d37;
+    --key-hover: #3a3b47;
+    --key-op: #34425f;
+    --key-op-hover: #415278;
+    --key-unit: #2a3630;
+    --key-unit-hover: #36463d;
+    --key-clear: #5a3333;
+    --key-clear-hover: #704040;
+    --good: #7fdc8c;
+    --warn: #f0c060;
+    --bad: #ff8585;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 24px 16px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+  h1 { font-family: var(--mono); font-weight: 600; font-size: 1.35rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); margin: 0; font-size: 0.9rem; max-width: 62ch; }
+
+  .app {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 20px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .readout { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .mode { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--accent); display: flex; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+  .stack {
+    background: var(--screen);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 18px;
+    min-height: 236px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 4px;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+  }
+  .reg { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-size: 1.35rem; min-width: 0; }
+  .reg .name { color: var(--muted); flex: none; }
+  .reg .val { overflow-x: auto; white-space: nowrap; text-align: right; }
+  .reg.top .val { color: var(--good); font-size: 1.6rem; font-weight: 500; }
+  .status { color: var(--muted); font-size: 0.95rem; align-self: center; margin: auto 0; text-align: center; }
+  .status.error { color: var(--bad); }
+
+  #entry {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 1.2rem;
+    padding: 10px 14px;
+    color: var(--fg);
+    background: var(--screen);
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    outline: none;
+  }
+  #entry:focus { border-color: var(--accent); }
+  #entry:disabled { opacity: 0.6; }
+
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  .log {
+    background: var(--screen);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+    height: 180px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+  }
+  .log .cmd { color: var(--muted); }
+  .log .ok { color: var(--good); }
+  .log .err { color: var(--bad); }
+  .log .warn { color: var(--warn); }
+
+  .keys { display: flex; gap: 16px; align-items: flex-start; }
+  .bank { display: grid; grid-template-columns: repeat(4, 58px); gap: 6px; }
+  .bank.pad { grid-template-columns: repeat(4, 64px); }
+  .key {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.85rem;
+    height: 38px;
+    border: none;
+    border-radius: 7px;
+    background: var(--key);
+    color: var(--fg);
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .pad .key { font-size: 1.05rem; height: 42px; }
+  .key:hover { background: var(--key-hover); }
+  .key:active { transform: translateY(1px); }
+  .key:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .key:disabled { opacity: 0.45; cursor: default; }
+  .key.op { background: var(--key-op); }
+  .key.op:hover { background: var(--key-op-hover); }
+  .key.unit { background: var(--key-unit); }
+  .key.unit:hover { background: var(--key-unit-hover); }
+  .key.clear { background: var(--key-clear); }
+  .key.clear:hover { background: var(--key-clear-hover); }
+  .key.enter { background: var(--accent); color: var(--accent-ink); grid-column: span 2; }
+  .key.enter:hover { filter: brightness(1.08); }
+
+  .help { color: var(--muted); font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; }
+  .help kbd { font-family: var(--mono); font-size: 0.78rem; padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--fg); }
+
+  @media (max-width: 980px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .keys { flex-wrap: wrap; justify-content: center; }
+  }
+  @media (max-width: 560px) {
+    .app { padding: 14px; }
+    .keys { flex-direction: column; align-items: stretch; }
+    .bank, .bank.pad { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .stack { min-height: 190px; }
+    .reg { font-size: 1.1rem; }
+    .reg.top .val { font-size: 1.3rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .key:active { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>EC <span>·</span> Engineering Calculator</h1>
+    <p class="sub">An RPN calculator that understands SI prefixes and units. This demo runs the real <code>ec</code> Python code in your browser.</p>
+  </header>
+
+  <main class="app">
+    <section class="readout" aria-label="Calculator display">
+      <div class="field">
+        <div class="label-row">
+          <span class="label">Stack</span>
+          <span class="mode" id="mode"><span>DEG</span><span>MKS</span></span>
+        </div>
+        <div class="stack" id="stack" aria-live="polite">
+          <div class="status" id="status">Starting Python… (first load downloads about 14 MB)</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="entry">Input</label>
+        <input id="entry" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. 10kOhm" disabled>
+        <div class="examples">
+          <span class="label">Try</span>
+          <button class="chip" data-ex="100mV 25mV +">100mV 25mV +</button>
+          <button class="chip" data-ex="10kOhm 10kOhm ||">10kOhm 10kOhm ||</button>
+          <button class="chip" data-ex="3 4 hypot">3 4 hypot</button>
+          <button class="chip" data-ex="1kΩ 100nF * 2pi * recip">1kΩ 100nF * 2pi * recip</button>
+          <button class="chip" data-ex="100 db">100 db</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">Output</span>
+        <pre class="log" id="log" aria-live="polite"></pre>
+      </div>
+    </section>
+
+    <section class="keys" aria-label="Keys">
+      <div class="bank" id="fnBank"></div>
+      <div class="bank pad" id="padBank"></div>
+    </section>
+  </main>
+
+  <ul class="help">
+    <li><kbd>Enter</kbd> push value</li>
+    <li>Operator key: push input, then apply</li>
+    <li><kbd>↑</kbd> <kbd>↓</kbd> history</li>
+    <li><kbd>Esc</kbd> clear input</li>
+    <li>Type <kbd>help</kbd> or <kbd>?sin</kbd> for docs</li>
+  </ul>
+</div>
+
+<script src="pyodide/pyodide.js"></script>
+<script>
+(() => {
+  const FN_KEYS = [
+    ["√", "sqrt"], ["x²", "sqr"], ["1/x", "recip"], ["|x|", "abs"],
+    ["eˣ", "exp"], ["ln", "ln"], ["10ˣ", "pow10"], ["log", "log"],
+    ["sin", "sin"], ["cos", "cos"], ["tan", "tan"], ["π", "pi"],
+    ["asin", "asin"], ["acos", "acos"], ["atan", "atan"], ["2π", "2pi"],
+    ["hypot", "hypot"], ["dB", "db"], ["dB→", "adb"], ["yˣ", "**"],
+    ["swap", "swap"], ["dup", "dup"], ["pop", "pop"], ["clstk", "clstack"],
+    ["DEG", "degs"], ["RAD", "rads"], ["lastx", "lastx"], ["vars", "vars"],
+    ["SI", "si"], ["ENG", "eng"], ["SCI", "sci"], ["help", "help"],
+  ];
+  const PAD = [
+    ["k", "unit"], ["M", "unit"], ["G", "unit"], ["m", "unit"],
+    ["µ", "unit"], ["n", "unit"], ["p", "unit"], ["f", "unit"],
+    ["V", "unit"], ["A", "unit"], ["Ω", "unit"], ["Hz", "unit"],
+    ["F", "unit"], ["H", "unit"], ["s", "unit"], ["W", "unit"],
+    ["7"], ["8"], ["9"], ["÷", "op", "/"],
+    ["4"], ["5"], ["6"], ["×", "op", "*"],
+    ["1"], ["2"], ["3"], ["−", "op", "-"],
+    ["0"], ["."], ["±", "op", "chs"], ["+", "op", "+"],
+    ["⌫", "clear", "back"], ["C", "clear", "clear"], ["Enter", "enter", "enter"],
+  ];
+  const LABELS = ["x", "y", "z", "t"];
+  const MAX_ROWS = 6;
+
+  const $ = (id) => document.getElementById(id);
+  const entry = $("entry"), stackEl = $("stack"), logEl = $("log"), modeEl = $("mode");
+  const buttons = [];
+  const history = [];
+  let historyIndex = 0;
+  let run = null;
+
+  function makeKey(parent, text, cls, handler, aria) {
+    const b = document.createElement("button");
+    b.className = "key" + (cls ? " " + cls : "");
+    b.textContent = text;
+    b.disabled = true;
+    if (aria) b.setAttribute("aria-label", aria);
+    b.addEventListener("click", () => { handler(); entry.focus(); });
+    parent.appendChild(b);
+    buttons.push(b);
+  }
+
+  FN_KEYS.forEach(([label, token]) => makeKey($("fnBank"), label, "", () => operator(token), token));
+  PAD.forEach(([label, kind, token]) => {
+    if (kind === "op") makeKey($("padBank"), label, "op", () => operator(token), token);
+    else if (kind === "unit") makeKey($("padBank"), label, "unit", () => append(label));
+    else if (token === "back") makeKey($("padBank"), label, "clear", backspace, "Delete one character");
+    else if (token === "clear") makeKey($("padBank"), label, "clear", clearOrReset, "Clear input, or clear stack if input is empty");
+    else if (token === "enter") makeKey($("padBank"), label, "enter", submit);
+    else makeKey($("padBank"), label, "", () => append(label));
+  });
+
+  function append(text) { entry.value += text; }
+  function backspace() { entry.value = entry.value.slice(0, -1); }
+  function clearOrReset() { entry.value ? (entry.value = "") : execute("clstack"); }
+  function remember(text) { history.push(text); historyIndex = history.length; }
+
+  function submit() {
+    const text = entry.value.trim();
+    if (!text) { execute("dup"); return; }
+    remember(text);
+    execute(text);
+  }
+
+  function operator(token) {
+    const text = entry.value.trim();
+    if (text) { remember(text); execute(text + " " + token); }
+    else execute(token);
+  }
+
+  function logLine(text, cls) {
+    const span = document.createElement("span");
+    if (cls) span.className = cls;
+    span.textContent = text + "\n";
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function render(state) {
+    stackEl.textContent = "";
+    const regs = state.stack.length ? state.stack.slice(0, MAX_ROWS) : ["0"];
+    for (let i = regs.length - 1; i >= 0; i--) {
+      const row = document.createElement("div");
+      row.className = "reg" + (i === 0 ? " top" : "");
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = (i < 4 ? LABELS[i] : String(i)) + ":";
+      const val = document.createElement("span");
+      val.className = "val";
+      val.textContent = regs[i];
+      row.append(name, val);
+      stackEl.appendChild(row);
+    }
+    modeEl.innerHTML = "";
+    [state.angle, state.units].forEach((t) => { const s = document.createElement("span"); s.textContent = t; modeEl.appendChild(s); });
+  }
+
+  function execute(command) {
+    if (!run) return;
+    logLine("› " + command, "cmd");
+    const res = JSON.parse(run(command));
+    res.messages.forEach((m) => logLine(m));
+    res.warnings.forEach((w) => logLine("warning: " + w, "warn"));
+    if (res.ok) logLine("= " + res.result, "ok");
+    else logLine(res.error, "err");
+    entry.value = "";
+    render(res);
+  }
+
+  entry.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); submit(); }
+    else if (e.key === "Escape") { entry.value = ""; }
+    else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (history.length && historyIndex > 0) { historyIndex--; entry.value = history[historyIndex]; }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex < history.length - 1) { historyIndex++; entry.value = history[historyIndex]; }
+      else { historyIndex = history.length; entry.value = ""; }
+    }
+  });
+
+  document.querySelectorAll(".chip").forEach((c) => {
+    c.addEventListener("click", () => {
+      if (!run) return;
+      execute("clstack");
+      remember(c.dataset.ex);
+      execute(c.dataset.ex);
+      entry.focus();
+    });
+  });
+
+  const BOOT = `
+import sys, json
+sys.path.insert(0, "/home/pyodide/lib")
+from ec.actions import actionsToUse, defaultFormat, defaultDigits, defaultSpacer, predefinedVariables
+from ec.calculator import Calculator, Display, CalculatorError
+
+_messages, _warnings, _frag = [], [], []
+
+def _print(message="", style="line"):
+    if style == "fragment":
+        _frag.append(message)
+        return
+    if _frag:
+        _messages.append(" ".join(_frag))
+        _frag.clear()
+    _messages.append(str(message).rstrip("\\n"))
+
+def _warn(w):
+    _warnings.append(str(w).strip())
+
+calc = Calculator(
+    actions=actionsToUse,
+    formatter=Display(formatter=defaultFormat, digits=defaultDigits, spacer=defaultSpacer),
+    predefinedVariables=predefinedVariables,
+    backUpStack=True,
+    messagePrinter=_print,
+    warningPrinter=_warn,
+)
+
+def _state():
+    return dict(
+        stack=[calc.format(v) for v in calc.stack.stack],
+        angle="DEG" if calc.trigMode == "degs" else "RAD",
+        units=calc.unit_system.upper(),
+    )
+
+def run(command):
+    _messages.clear(); _warnings.clear(); _frag.clear()
+    out = dict(ok=True, result="", error="")
+    try:
+        out["result"] = calc.format(calc.evaluate(calc.split(command)))
+    except CalculatorError as e:
+        out.update(ok=False, error=e.message)
+        calc.restoreStack()
+    except SystemExit:
+        out.update(ok=False, error="quit is not available in the web demo.")
+        calc.restoreStack()
+    except Exception as e:
+        out.update(ok=False, error=f"{type(e).__name__}: {e}")
+        calc.restoreStack()
+    if _frag:
+        _messages.append(" ".join(_frag)); _frag.clear()
+    out.update(_state(), messages=list(_messages), warnings=list(_warnings))
+    return json.dumps(out)
+
+json.dumps(_state())
+`;
+
+  async function boot() {
+    const status = $("status");
+    try {
+      const base = new URL("pyodide/", document.baseURI).href;
+      const py = await loadPyodide({ indexURL: base, stdLibURL: base + "python_stdlib.bin.wasm" });
+      status.textContent = "Loading the calculator…";
+      const resp = await fetch("ecpkg.bin.wasm");
+      if (!resp.ok) throw new Error("could not load the calculator files (HTTP " + resp.status + ")");
+      py.unpackArchive(await resp.arrayBuffer(), "zip", { extractDir: "/home/pyodide/lib" });
+      const initial = JSON.parse(py.runPython(BOOT));
+      run = py.globals.get("run");
+      buttons.forEach((b) => (b.disabled = false));
+      entry.disabled = false;
+      render(initial);
+      logLine("Ready. Type a value and press Enter, or tap an example.", "cmd");
+      entry.focus();
+    } catch (err) {
+      status.textContent = "The calculator could not start: " + (err && err.message ? err.message : err);
+      status.classList.add("error");
+    }
+  }
+
+  if (typeof loadPyodide === "function") boot();
+  else {
+    const status = $("status");
+    status.textContent = "The calculator could not start: the Python runtime did not load.";
+    status.classList.add("error");
+  }
+})();
+</script>
+
+</html>

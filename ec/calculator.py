@@ -1,3 +1,6 @@
+# Copyright (C) 2013-2024 Kenneth S. Kundert
+# Licensed under the GNU General Public License v3 or later.
+
 from copy import copy
 from inform import Error, cull, display, full_stop, plural, warn
 from pydoc import pager
@@ -6,74 +9,74 @@ from textwrap import wrap, fill, dedent
 import math
 import re
 import sys
- 
+
 __version__ = "1.11"
 __released__ = "2024-08-06"
- 
+
 italicsRegex = re.compile(r"#⟪(\w+)⟫")
 boldRegex = re.compile(r"@⟪(\w+)⟫")
- 
- 
+
+
 def stripFormatting(text):
     text = italicsRegex.sub(r"\1", text)
     text = boldRegex.sub(r"\1", text)
     return text
- 
- 
+
+
 def de_quote(text):
     if (text[0], text[-1]) == ('"', '"'):
         return text[1:-1]
     else:
         return text
- 
- 
+
+
 class CalculatorError(Exception):
     def __init__(self, message):
         self.message = message
- 
+
     def getMessage(self):
         return self.message
- 
- 
+
+
 class Stack:
     def __init__(self, parent, stack=None):
         self.parent = parent
         if stack is None:
             stack = []
         self.stack = stack
- 
+
     def push(self, value):
         self.parent.update_last_x = True
         self.stack.insert(0, value)
- 
+
     def pop(self):
         try:
             return self.stack.pop(0)
         except IndexError:
             return (0, "")
- 
+
     def peek(self, reg=0):
         try:
             return self.stack[reg]
         except IndexError:
             return (0, "")
- 
+
     def clear(self):
         self.stack = []
- 
+
     def clone(self):
         return Stack(self.parent, copy(self.stack))
- 
+
     def __str__(self):
         return str(self.stack)
- 
+
     def display(self):
         length = len(self.stack)
         labels = ["x:", "y:"] + (length - 2) * ["  "]
         for label, value in reversed(list(zip(labels, self.stack))):
             self.parent.printMessage(f"  {label} {self.parent.format(value)}")
- 
- 
+
+
 class Heap:
     def __init__(self, parent=None, initialState=None, reserved=[], removeAction=None):
         self.parent = parent
@@ -81,13 +84,13 @@ class Heap:
         self.reserved = list(reserved)
         self.heap = copy(self.initialState)
         self.removeAction = removeAction
- 
+
     def clear(self):
         self.heap = copy(self.initialState)
- 
+
     def __str__(self):
         return str(self.heap)
- 
+
     def display(self):
         for key in sorted(self.heap.keys()):
             kind, value = self.heap[key]
@@ -97,10 +100,10 @@ class Heap:
                 self.parent.printMessage(f"  {key}: ({' '.join(value)})")
             else:
                 raise NotImplementedError
- 
+
     def __getitem__(self, key):
         return self.heap[key]
- 
+
     def __setitem__(self, key, pair):
         kind, value = pair
         if key in self.reserved:
@@ -111,11 +114,11 @@ class Heap:
             else:
                 raise KeyError
         self.heap[key] = kind, value
- 
+
     def __contains__(self, key):
         return key in self.heap
- 
- 
+
+
 class Display:
     def __init__(self, formatter, digits=4, spacer=" "):
         self.defaultFormatter = formatter.formatter
@@ -125,14 +128,14 @@ class Display:
         self.formatterTakesUnits = formatter.formatterTakesUnits
         self.digits = digits
         self.spacer = spacer
- 
+
     def setFormatter(self, formatter):
         self.formatter = formatter.formatter
         self.formatterTakesUnits = formatter.formatterTakesUnits
- 
+
     def setDigits(self, digits):
         self.digits = digits
- 
+
     def format(self, val):
         num, units = val
         if isinstance(num, complex):
@@ -141,7 +144,7 @@ class Display:
             zero = self.format((0, units))
             one = self.format((1, units))
             units = " " + units if units else ""
- 
+
             if imag == zero:
                 return real
             elif imag[0] == "-":
@@ -156,7 +159,7 @@ class Display:
                 if real == zero:
                     return "j" + imag
                 return f"{real} + j{imag}"
- 
+
         if self.formatterTakesUnits:
             return self.formatter(num, units, self.digits)
         else:
@@ -167,17 +170,17 @@ class Display:
                 return number
             else:
                 return number + self.spacer + units
- 
+
     def clear(self):
         self.formatter = self.defaultFormatter
         self.formatterTakesUnits = self.defaultFormatterTakesUnits
         self.digits = self.defaultDigits
- 
- 
+
+
 class Action:
     def __init__(self):
         raise NotImplementedError
- 
+
     def getName(self, givenName=None):
         if hasattr(self, "name") and self.name:
             primaryName = self.name
@@ -185,7 +188,7 @@ class Action:
             primaryName = self.key
         else:
             primaryName = None
- 
+
         if givenName:
             if hasattr(self, "name") and givenName == self.name:
                 return primaryName
@@ -196,37 +199,37 @@ class Action:
             return None
         else:
             return primaryName
- 
+
     def getDescription(self):
         try:
             return self.description if self.description else ""
         except AttributeError:
             return ""
- 
+
     def getSynopsis(self):
         try:
             return self.synopsis if self.synopsis else ""
         except AttributeError:
             return ""
- 
+
     def getSummary(self):
         try:
             return self.summary if self.summary else ""
         except AttributeError:
             return ""
- 
+
     def addAliases(self, aliases):
         try:
             self.aliases |= set(aliases)
         except AttributeError:
             self.aliases = set(aliases)
- 
+
     def getAliases(self):
         try:
             return self.aliases
         except AttributeError:
             return set()
- 
+
     def addTest(
         self,
         stimulus,
@@ -250,19 +253,19 @@ class Action:
             test["messages"] = [messages] if isinstance(messages, str) else messages
         if warnings is not None:
             test["warnings"] = warnings if isinstance(warnings, list) else [warnings]
- 
+
         if hasattr(self, "tests"):
             self.tests += [test]
         else:
             self.tests = [test]
- 
+
         misplacedTest = f"misplaced test: action={self.getName()}, stimulus={stimulus}"
         components = Calculator.split(stimulus)
         if hasattr(self, "key"):
             found = self.key in components
             if not found and hasattr(self, "name"):
                 found = any(c.startswith(self.key) for c in components)
- 
+
             if not found and hasattr(self, "aliases"):
                 found = set(self.aliases).intersection(set(components))
         elif hasattr(self, "regex"):
@@ -272,8 +275,8 @@ class Action:
                     found = True
                     break
         assert found, misplacedTest
- 
- 
+
+
 class Command(Action):
     def __init__(
         self,
@@ -292,11 +295,11 @@ class Command(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.aliases = aliases
- 
+
     def _execute(self, calc):
         self.action(calc)
- 
- 
+
+
 class Constant(Action):
     def __init__(
         self,
@@ -315,7 +318,7 @@ class Constant(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.aliases = aliases
- 
+
     def _execute(self, calc):
         stack = calc.stack
         if isinstance(self.action, dict):
@@ -332,8 +335,8 @@ class Constant(Action):
         if callable(result):
             result = result()
         stack.push((result, units))
- 
- 
+
+
 class UnaryOp(Action):
     def __init__(
         self,
@@ -354,7 +357,7 @@ class UnaryOp(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.aliases = aliases
- 
+
     def _execute(self, calc):
         stack = calc.stack
         x, xUnits = stack.pop()
@@ -367,8 +370,8 @@ class UnaryOp(Action):
         else:
             units = self.units
         stack.push((x, units))
- 
- 
+
+
 class BinaryOp(Action):
     def __init__(
         self,
@@ -389,7 +392,7 @@ class BinaryOp(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.aliases = aliases
- 
+
     def _execute(self, calc):
         stack = calc.stack
         x, xUnits = stack.pop()
@@ -403,8 +406,8 @@ class BinaryOp(Action):
         else:
             units = self.units
         stack.push((result, units))
- 
- 
+
+
 class BinaryIoOp(Action):
     def __init__(
         self,
@@ -427,7 +430,7 @@ class BinaryIoOp(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.aliases = aliases
- 
+
     def _execute(self, calc):
         stack = calc.stack
         x, xUnits = stack.pop()
@@ -446,8 +449,8 @@ class BinaryIoOp(Action):
             yUnits = self.yUnits
         stack.push((result[1], yUnits))
         stack.push((result[0], xUnits))
- 
- 
+
+
 class Dup(Action):
     def __init__(
         self,
@@ -469,7 +472,7 @@ class Dup(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.aliases = aliases
- 
+
     def _execute(self, calc):
         stack = calc.stack
         x, xUnits = stack.peek()
@@ -484,8 +487,8 @@ class Dup(Action):
                 else:
                     xUnits = self.units
         stack.push((x, xUnits))
- 
- 
+
+
 class Number(Action):
     def __init__(
         self,
@@ -505,15 +508,15 @@ class Number(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.regex = re.compile(pattern)
- 
+
     def _execute(self, matchGroups, calc):
         if self.needCalc:
             num, units = self.action(matchGroups, calc)
         else:
             num, units = self.action(matchGroups)
         calc.stack.push((num, units))
- 
- 
+
+
 class SetFormat(Action):
     def __init__(
         self,
@@ -531,13 +534,13 @@ class SetFormat(Action):
         self.description = description
         self.summary = summary
         self.regex = re.compile(pattern)
- 
+
     def _execute(self, matchGroups, calc):
         calc.formatter.setFormatter(self)
         if matchGroups and matchGroups[0] is not None:
             calc.formatter.setDigits(int(matchGroups[0]))
- 
- 
+
+
 class Help(Action):
     def __init__(self, key=None, name=None, description=None, summary=None):
         assert key or name
@@ -546,10 +549,10 @@ class Help(Action):
         self.description = description
         self.summary = summary
         self.regex = re.compile(r"\?(\S+)?")
- 
+
     def _execute(self, matchGroups, calc):
         topic = matchGroups[0]
- 
+
         if topic:
             for action in calc.actions:
                 found = action.getName(topic)
@@ -579,7 +582,7 @@ class Help(Action):
                         calc.printMessage(aliases)
                     return
             calc.printWarning(f"{topic}: not found.\n")
- 
+
         topics = [action.getName() for action in calc.actions if action.getName()]
         colWidth = max([len(topic) for topic in topics]) + 3
         topics.sort()
@@ -603,7 +606,7 @@ class Help(Action):
                     pass
             calc.printMessage()
         return
- 
+
     def formatHelpText(self, text):
         lines = dedent(text).strip().splitlines()
         paragraphs = []
@@ -625,8 +628,8 @@ class Help(Action):
         if gatheredLines:
             paragraphs += [fill(" ".join(gatheredLines))]
         return "\n".join(paragraphs)
- 
- 
+
+
 class Store(Action):
     def __init__(self, name, description=None, synopsis=None, summary=None):
         self.name = name
@@ -634,7 +637,7 @@ class Store(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.regex = re.compile(r"=([a-z]\w*)", re.I)
- 
+
     def _execute(self, matchGroups, calc):
         name = matchGroups[0]
         try:
@@ -643,8 +646,8 @@ class Store(Action):
             raise CalculatorError(
                 f"{name}: reserved, cannot be used as variable name."
             )
- 
- 
+
+
 class Recall(Action):
     def __init__(self, name, description=None, synopsis=None, summary=None):
         self.name = name
@@ -652,7 +655,7 @@ class Recall(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.regex = re.compile(r"([a-z]\w*)", re.I)
- 
+
     def _execute(self, matchGroups, calc):
         name = matchGroups[0]
         if name in calc.heap:
@@ -665,8 +668,8 @@ class Recall(Action):
                 raise NotImplementedError
         else:
             raise CalculatorError(f"{name}: variable does not exist.")
- 
- 
+
+
 class SetUnits(Action):
     def __init__(self, name, key=None, description=None, synopsis=None, summary=None):
         self.key = key
@@ -675,14 +678,14 @@ class SetUnits(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.regex = re.compile(r'"(.*)"')
- 
+
     def _execute(self, matchGroups, calc):
         stack = calc.stack
         (units,) = matchGroups
         x, xUnits = stack.pop()
         stack.push((x, units))
- 
- 
+
+
 class Convert(Action):
     def __init__(self, key, name=None, description=None, synopsis=None, summary=None):
         self.key = key
@@ -691,12 +694,12 @@ class Convert(Action):
         self.synopsis = synopsis
         self.summary = summary
         self.regex = re.compile(r'>([a-z$°ÅɃ₿ș]\w*)', re.I)
- 
+
     def _execute(self, matchGroups, calc):
         to_units = de_quote(matchGroups[0])
         stack = calc.stack
         x, xUnits = stack.pop()
- 
+
         try:
             if xUnits:
                 x = Quantity(x, xUnits).scale(to_units)
@@ -705,10 +708,10 @@ class Convert(Action):
                 xUnits = to_units
         except UnknownConversion as e:
             raise Error(e, culprit=(xUnits, to_units))
- 
+
         stack.push((x, xUnits))
- 
- 
+
+
 class Print(Action):
     def __init__(self, key=None, name=None, description=None, summary=None):
         assert key or name
@@ -718,7 +721,7 @@ class Print(Action):
         self.summary = summary
         self.regex = re.compile(r"`(.*)`")
         self.argsRegex = re.compile(r"\${?(\w+|\$)}?")
- 
+
     def _execute(self, matchGroups, calc):
         (text,) = matchGroups
         if not text:
@@ -753,14 +756,14 @@ class Print(Action):
             components[1::2] = formattedArgs
             message = "".join(components)
         calc.printMessage(message)
- 
- 
+
+
 class Category(Action):
     def __init__(self, description):
         self.category = description
         self.description = description
- 
- 
+
+
 class Calculator:
     operatorSplitRegex = re.compile(
         r"""
@@ -770,7 +773,7 @@ class Calculator:
         re.X,
     )
     stringSplitRegex = re.compile(r"""((?:"[^"]*"|`[^`]*`)+)""")
- 
+
     def __init__(
         self,
         actions,
@@ -812,7 +815,7 @@ class Calculator:
                 assert hasattr(action, "category"), f"expected category: {action.__dict__}"
                 prunedActions += [action]
         self.actions = prunedActions
- 
+
         self.formatter = formatter
         self.backUpStack = backUpStack
         self.messagePrinter = messagePrinter
@@ -827,11 +830,11 @@ class Calculator:
             parent=self,
         )
         self.clear()
- 
+
     @classmethod
     def split(cls, given):
         processed = given.replace("(", "( ").replace(")", " )")
- 
+
         components = Calculator.stringSplitRegex.split(processed)
         tokens = []
         for i, component in enumerate(components):
@@ -840,13 +843,13 @@ class Calculator:
             else:
                 tokens += Calculator.operatorSplitRegex.sub(" ", component).split()
         return tokens
- 
+
     def evaluate(self, given):
         def showLoc(given, index):
             cmds = " ".join(given)
             okay = " ".join(given[:index])
             return "\n" + cmds + "\n " + " " * len(okay) + "▲"
- 
+
         if self.backUpStack:
             self.prevStack = self.stack.clone()
         try:
@@ -899,7 +902,7 @@ class Calculator:
             raise CalculatorError("division by zero." + showLoc(given, index))
         except (ValueError, OverflowError, Error) as e:
             raise CalculatorError(full_stop(e) + showLoc(given, index))
- 
+
     def clear(self):
         self.stack.clear()
         self.prevStack = None
@@ -908,50 +911,50 @@ class Calculator:
         self.heap.clear()
         self.useDegrees()
         self.useMKS()
- 
+
     def restoreStack(self):
         self.stack = self.prevStack
         return self.format(self.stack.peek())
- 
+
     def format(self, value):
         return self.formatter.format(value)
- 
+
     def removeAction(self, key):
         del self.smplActions[key]
- 
+
     def useMKS(self):
         self.unit_system = "mks"
- 
+
     def useCGS(self):
         self.unit_system = "cgs"
- 
+
     def useRadians(self):
         self.trigMode = "rads"
         self.convertToRadians = 1
- 
+
     def useDegrees(self):
         self.trigMode = "degs"
         self.convertToRadians = math.pi / 180
- 
+
     def toRadians(self, arg):
         return arg * self.convertToRadians
- 
+
     def fromRadians(self, arg):
         return arg / self.convertToRadians
- 
+
     def angleUnits(self):
         return self.trigMode
- 
+
     def swap(self):
         stack = self.stack
         x, xUnits = stack.pop()
         y, yUnits = stack.pop()
         stack.push((x, yUnits))
         stack.push((y, yUnits))
- 
+
     def pop(self):
         self.stack.pop()
- 
+
     def printMessage(self, message="", style="line"):
         if self.messagePrinter:
             self.messagePrinter(message, style)
@@ -963,13 +966,13 @@ class Calculator:
             else:
                 assert style == "fragment"
                 display(message, end=" ")
- 
+
     def printWarning(self, warning):
         if self.warningPrinter:
             self.warningPrinter(warning)
         else:
             warn(warning)
- 
+
     def displayHelp(calc):
         lines = []
         for action in calc.actions:
@@ -982,7 +985,7 @@ class Calculator:
                         initial_indent="    ",
                         subsequent_indent="        ",
                     )
- 
+
                     aliases = action.getAliases()
                     if aliases:
                         aliases = f"{plural(aliases):alias/es}: {', '.join(aliases)}"
@@ -992,14 +995,14 @@ class Calculator:
                     if addendum:
                         lines.append(f"        {addendum}")
         calc.printMessage("\n".join(lines) + "\n", style="page")
- 
+
     def aboutMsg(calc):
         calc.printMessage(
             dedent(
                 """\
             EC: Engineering Calculator
             Version {} ({}).
- 
+
             EC was written by Ken Kundert.
             Report issues or ask questions at https://github.com/KenKundert/ec/issues
             To view the manual, visit https://engineering-calculator.readthedocs.io\
@@ -1008,32 +1011,31 @@ class Calculator:
                 )
             )
         )
- 
+
     def describeFunctions(calc):
         calc.printMessage(
             dedent(
                 """
             Define functions using:
                 ( ... )name
- 
+
             Here '(' starts the function definition and ')name' ends it. The
             closing parenthesis must be immediately adjacent to 'name'. The
             '...' represents a sequence of calculator actions. For example:
- 
+
                 0: (2pi * “rads/s”)to_omega
                 0: (2pi / “Hz”)to_freq
                 0: 100MHz
                 100 MHz: to_omega
                 628.32 Mrads/s: to_freq
                 100 MHz:
- 
+
             You can list the user-defined functions along with the user-defined
             variables using the 'vars' command. The functions are delimited with
             parentheses.
         """
             ).strip()
         )
- 
+
     def quit(calc):
         sys.exit(0)
- 
