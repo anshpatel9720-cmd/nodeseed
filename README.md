@@ -1,4 +1,3 @@
-this calculator is good 
 # EC – Engineering Calculator
 
 A stack-based (RPN) command-line calculator that understands SI scale factors and units (for example `10MHz`, `25mV`, `4.7kOhm`).
@@ -21,7 +20,8 @@ project/
     ├── main.py
     ├── calculator.py
     ├── actions.py
-    └── fetch_url.py     (used for the Bitcoin conversions)
+    ├── fetch_url.py     (used for the Bitcoin conversions)
+    └── gui.py           (desktop app)
 ```
 
 ## Setup
@@ -66,6 +66,29 @@ Show options:
 ```
 python3 -c "from ec.main import main; main()" --help
 ```
+
+## Desktop app (GUI)
+
+Put `gui.py` in the same `ec/` folder, then from the `project` folder run:
+
+```
+python3 -m ec.gui
+```
+
+The window uses Tkinter, which comes with Python on Windows and macOS. On Linux, install it first:
+
+```
+sudo apt install python3-tk
+```
+
+How to use it:
+
+- Type a value (for example `10kOhm`) and press **Enter** to push it onto the stack.
+- Press an operator (`+`, `×`, `sin`, `hypot`…) to apply it. If the input box has a value, that value is pushed first.
+- Use the prefix and unit keys (`k`, `M`, `µ`, `V`, `Ω`, `Hz`…) to build values like `4.7kΩ`.
+- You can also type full commands such as `1MHz 2pi *` into the input box.
+- **C** clears the input box, or the whole stack if the box is already empty. **⌫** deletes one character.
+- Use the **↑ / ↓** keys to go back through earlier inputs, and **Esc** to clear the input box.
 
 ## Examples (RPN: enter values first, then the operator)
 
